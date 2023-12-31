@@ -6,12 +6,11 @@ mod helpers;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // let input_text =
-    //     "this is a text with a text and this text is good very good too good awesome good";
-    let input_text = read_arabic_quran("1", "1");
-    let input_image = "bg_images/water_bg.jpg";
-    // let file_name = download_ayat_translation("1", "1:1").await.unwrap();
-    make_empty_video(input_image);
-    add_text_in_image(&input_text);
+    let surah = "1";
+    let aya = "1";
+    let audio_path = format!("resources/audios/arabic/{:0>3}{:0>3}.mp3", surah, aya);
+    let input_text = read_arabic_quran(surah, aya);
+    let input_image = "resources/backgrounds/desert.jpg";
+    make_short(input_image, &input_text, &audio_path);
     Ok(())
 }

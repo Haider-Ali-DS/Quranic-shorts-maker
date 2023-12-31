@@ -7,6 +7,12 @@ use std::{
 
 use xml::{attribute::OwnedAttribute, reader::XmlEvent, EventReader};
 
+pub enum TextType {
+    Arabic,
+    Urdu,
+    English,
+}
+
 pub fn wrap_text(text: &str, max_width: usize) -> String {
     let mut wrapped = String::new();
     let mut line_length = 0;
@@ -29,7 +35,7 @@ pub fn wrap_text(text: &str, max_width: usize) -> String {
 }
 
 pub fn read_arabic_quran(sura_index_target: &str, aya_index_target: &str) -> String {
-    let file = File::open("resources/quran.xml").unwrap();
+    let file = File::open("resources/text/urdu.xml").unwrap();
     let file = BufReader::new(file);
 
     let parser = EventReader::new(file);
@@ -70,65 +76,33 @@ fn get_attribute_value(attributes: &[OwnedAttribute], name: &str) -> Option<Stri
         .find(|attr| attr.name.local_name == name)
         .map(|attr| attr.value.clone())
 }
-pub async fn download_ayat_translation(
-    recitation_id: &str,
-    ayat_key: &str,
-) -> Result<String, Box<dyn Error>> {
-    let file_name = format!("{}.mp3", ayat_key);
-    let url = format!(
-        "https://api.quran.com/api/v4/recitations/{}/by_ayah/{}",
-        recitation_id, ayat_key
-    );
-    let response = reqwest::get(&url).await?;
-    if response.status().is_success() {
-        println!("response {:#?}", response);
-        let bytes = response.bytes().await?;
-        let mut file = File::create(file_name.clone())?;
-        file.write_all(&bytes)?;
-        println!("Saved to output.mp3");
-    } else {
-        eprintln!("Request failed with status: {}", response.status());
-    }
-    Ok(file_name)
-}
 
-pub fn make_empty_video(bg_image: &str) {
+pub fn make_short(bg_image: &str, text: &str, audio_path: &str) {
     let output_path = "generated-videos/output.mp4";
+    let draw_text_filter = &format!(
+                "drawtext=text={}:fontfile=resources/fonts/{}:fontcolor=white:fontsize=50:x=(w-text_w)/2:y=(h-text_h)/2",
+                wrap_text(text, 30),
+                "arabic.ttf"
+            );
     Command::new("ffmpeg")
         .args([
             "-loop",
             "1",
             "-i",
-            &format!("{}", bg_image),
+            bg_image,
+            "-i",
+            audio_path,
+            "-shortest",
+            "-vf",
+            draw_text_filter,
             "-c:v",
             "libx264",
-            "-t",
-            "10",
+            "-c:a",
+            "aac",
             "-pix_fmt",
             "yuv420p",
-            &format!("{}", output_path),
+            output_path,
         ])
         .output()
         .expect("Failed to execute FFmpeg command");
-}
-
-pub fn add_text_in_image(text: &str) {
-    let input_video = "generated-videos/output.mp4";
-    let output_video = "generated-videos/output1.mp4";
-    let output = Command::new("ffmpeg")
-        .args([
-            "-i",
-            &format!("{}", input_video),
-            "-vf",
-            &format!(
-                "drawtext=text={}:fontfile=resources/arabic.ttf:fontcolor=white:fontsize=50:x=(w-text_w)/2:y=(h-text_h)/2",
-                wrap_text(text, 30)
-            ),
-            "-codec:a",
-            "copy",
-            &format!("{}", output_video),
-        ])
-        .output()
-        .expect("Failed to execute FFmpeg command");
-    println!("{:?}", output);
 }
