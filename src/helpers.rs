@@ -55,7 +55,8 @@ pub fn make_short(bg_image: &str, text: &str, audio_path: &str) {
     let output_path = "generated-videos/output.mp4";
     let title = "drawtext=text=Al-Quran:fontcolor=white:fontsize=60:x=(w-text_w)/2:y=80";
     let sub_title = "drawtext=text=Translation:fontcolor=white:fontsize=40:x=(w-text_w)/2:y=135";
-    let seperator = "drawtext=text=𝒞-----❤-----𝒞:fontcolor=white:fontsize=30:x=(w-text_w)/2:y=175";
+    let seperator =
+        "drawtext=text=❀----------❤----------❀:fontcolor=white:fontsize=30:x=(w-text_w)/2:y=175";
     let _ = subtitle_generator(text, audio_path);
     let subtitle_filter = "subtitles=filename=output.ass:fontsdir=resources/fonts/";
     Command::new("ffmpeg")
