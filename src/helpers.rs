@@ -1,38 +1,12 @@
 use std::{
-    error::Error,
-    fs::File,
-    io::{BufReader, Write},
+    fs::{self, File},
+    io::BufReader,
     process::Command,
 };
 
 use xml::{attribute::OwnedAttribute, reader::XmlEvent, EventReader};
 
-pub enum TextType {
-    Arabic,
-    Urdu,
-    English,
-}
-
-pub fn wrap_text(text: &str, max_width: usize) -> String {
-    let mut wrapped = String::new();
-    let mut line_length = 0;
-
-    for word in text.split_whitespace() {
-        let word_length = word.chars().count();
-
-        // Check if adding the next word exceeds the max line width
-        if line_length + word_length > max_width {
-            wrapped.push('\n');
-            line_length = 0;
-        }
-
-        wrapped.push_str(word);
-        wrapped.push(' ');
-        line_length += word_length + 1;
-    }
-
-    wrapped.trim_end().to_string()
-}
+use crate::audio_helper::*;
 
 pub fn read_arabic_quran(sura_index_target: &str, aya_index_target: &str) -> String {
     let file = File::open("resources/text/urdu.xml").unwrap();
@@ -79,11 +53,11 @@ fn get_attribute_value(attributes: &[OwnedAttribute], name: &str) -> Option<Stri
 
 pub fn make_short(bg_image: &str, text: &str, audio_path: &str) {
     let output_path = "generated-videos/output.mp4";
-    let draw_text_filter = &format!(
-                "drawtext=text={}:fontfile=resources/fonts/{}:fontcolor=white:fontsize=50:x=(w-text_w)/2:y=(h-text_h)/2",
-                wrap_text(text, 30),
-                "arabic.ttf"
-            );
+    let title = "drawtext=text=Al-Quran:fontcolor=white:fontsize=60:x=(w-text_w)/2:y=80";
+    let sub_title = "drawtext=text=Translation:fontcolor=white:fontsize=40:x=(w-text_w)/2:y=135";
+    let seperator = "drawtext=text=𝒞-----❤-----𝒞:fontcolor=white:fontsize=30:x=(w-text_w)/2:y=175";
+    let _ = subtitle_generator(text, audio_path);
+    let subtitle_filter = "subtitles=filename=output.ass:fontsdir=resources/fonts/";
     Command::new("ffmpeg")
         .args([
             "-loop",
@@ -92,17 +66,18 @@ pub fn make_short(bg_image: &str, text: &str, audio_path: &str) {
             bg_image,
             "-i",
             audio_path,
-            "-shortest",
             "-vf",
-            draw_text_filter,
+            &format!("{},{},{},{}", title, sub_title, seperator, subtitle_filter),
             "-c:v",
             "libx264",
             "-c:a",
             "aac",
             "-pix_fmt",
             "yuv420p",
+            "-shortest",
             output_path,
         ])
         .output()
         .expect("Failed to execute FFmpeg command");
+    let _ = fs::remove_file("output.ass");
 }
