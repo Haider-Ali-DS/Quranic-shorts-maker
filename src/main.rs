@@ -1,5 +1,6 @@
 use clap::{Parser, ValueEnum};
 use helpers::*;
+use std::path::Path;
 use std::str::FromStr;
 use std::{error::Error, fs};
 
@@ -12,15 +13,17 @@ pub const FONT_DIR: &str = "resources/fonts";
 
 #[derive(Parser)]
 pub struct Args {
-    #[clap(short, long)]
+    #[clap(long, default_value = "desert.jpg")]
+    pub bg: String,
+    #[clap(long)]
     pub surah: String,
-    #[clap(short, long)]
+    #[clap(long)]
     pub start_aya: String,
-    #[clap(short, long)]
+    #[clap(long)]
     pub end_aya: String,
-    #[clap(value_enum, short, long, default_value_t = AudioType::Arabic)]
+    #[clap(value_enum, long, default_value_t = AudioType::Arabic)]
     pub audio_type: AudioType,
-    #[clap(value_enum, short, long, default_value_t= TextType::None)]
+    #[clap(value_enum, long, default_value_t= TextType::None)]
     pub text_type: TextType,
 }
 
@@ -66,35 +69,35 @@ impl FromStr for TextType {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let surah = "1";
-    let start_aya = "1";
-    let end_aya = "1";
-    let text_type = TextType::Urdu;
-    let audio_type = AudioType::Arabic;
+    let args = Args::parse();
 
+    let output_path = Path::new("./generated-videos/output.mp4");
+    if output_path.exists() {
+        fs::remove_file(output_path).unwrap();
+    }
     let temp_file_path = "mp3files.txt";
     let concatenated_audio = "audio.mp3";
     let subtitle_path = "subtitle.ass";
-    let input_image = format!("{}/desert.jpg", BG_DIR);
-    let surah_title = get_surah_title(surah);
+    let input_image = format!("{}/{}", BG_DIR, args.bg);
+    let surah_title = get_surah_title(&args.surah);
 
-    let text_file = match text_type {
+    let text_file = match args.text_type {
         TextType::Arabic => Some("arabic.xml"),
         TextType::English => Some("english.xml"),
         TextType::Urdu => Some("urdu.xml"),
         TextType::None => None,
     };
 
-    let audio_folder = match audio_type {
+    let audio_folder = match args.audio_type {
         AudioType::Arabic => "arabic",
         AudioType::English => "english",
         AudioType::Urdu => "urdu",
     };
 
     let subtitles = get_full_audio_and_text(
-        surah,
-        start_aya,
-        end_aya,
+        &args.surah,
+        &args.start_aya,
+        &args.end_aya,
         text_file,
         audio_folder,
         temp_file_path,
@@ -104,8 +107,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     make_short(
         &input_image,
         &surah_title,
-        start_aya,
-        end_aya,
+        &args.start_aya,
+        &args.end_aya,
         subtitle_path,
         concatenated_audio,
     );
