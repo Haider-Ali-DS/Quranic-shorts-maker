@@ -1,5 +1,4 @@
 use std::{
-    error::Error,
     fs::{self, File},
     io::{self, BufReader, Write},
     process::Command,
@@ -17,8 +16,15 @@ pub struct SubtitleData {
     pub text: String,
 }
 
-pub fn read_arabic_quran(sura_index_target: &str, aya_index_target: &str) -> String {
-    let file = File::open(format!("{}/urdu.xml", TEXT_DIR)).unwrap();
+pub fn read_arabic_quran(
+    sura_index_target: &str,
+    aya_index_target: &str,
+    file_name: Option<&str>,
+) -> String {
+    let Some(file_name) = file_name else {
+        return String::new();
+    };
+    let file = File::open(format!("{}/{}", TEXT_DIR, file_name)).unwrap();
     let file = BufReader::new(file);
 
     let parser = EventReader::new(file);
@@ -53,6 +59,42 @@ pub fn read_arabic_quran(sura_index_target: &str, aya_index_target: &str) -> Str
     "".into()
 }
 
+pub fn get_surah_title(surah_index: &str) -> String {
+    let file = File::open(format!("{}/metadata.xml", TEXT_DIR)).unwrap();
+    let file = BufReader::new(file);
+
+    let parser = EventReader::new(file);
+    let mut surah_name = String::new();
+    for e in parser {
+        match e {
+            Ok(XmlEvent::StartElement {
+                name, attributes, ..
+            }) => {
+                if name.local_name == "sura" {
+                    let mut is_index_matched = false;
+
+                    for attr in &attributes {
+                        if attr.name.local_name == "index" && attr.value == surah_index {
+                            is_index_matched = true;
+                        }
+
+                        if is_index_matched && attr.name.local_name == "tname" {
+                            surah_name = attr.value.clone();
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!("Error: {}", e);
+                break;
+            }
+            _ => {}
+        }
+    }
+    surah_name
+}
+
 fn get_attribute_value(attributes: &[OwnedAttribute], name: &str) -> Option<String> {
     attributes
         .iter()
@@ -64,6 +106,8 @@ pub fn get_full_audio_and_text(
     surah: &str,
     start_aya: &str,
     end_aya: &str,
+    text_file: Option<&str>,
+    audio_type: &str,
     temp_file_path: &str,
 ) -> Vec<SubtitleData> {
     let start = start_aya.parse::<u16>().unwrap();
@@ -73,10 +117,10 @@ pub fn get_full_audio_and_text(
     let mut current_start_time = Duration::new(0, 0);
 
     for i in start..=end {
-        let audio_path = format!("{}/arabic/{:0>3}{:0>3}.mp3", AUDIO_DIR, surah, i);
+        let audio_path = format!("{}/{}/{:0>3}{:0>3}.mp3", AUDIO_DIR, audio_type, surah, i);
         writeln!(file, "file '{}'", audio_path).unwrap();
 
-        let text = read_arabic_quran(surah, &format!("{}", i));
+        let text = read_arabic_quran(surah, &format!("{}", i), text_file);
         let duration_f64 = get_audio_duration(&audio_path).unwrap();
         let duration = parse_duration(duration_f64);
         let end_time = duration;
@@ -171,7 +215,7 @@ pub fn make_subtitle_file(subtitles: Vec<SubtitleData>, output: &str) {
         \n\
         [V4+ Styles]\n\
         Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n\
-        Style: Default, Noto Naskh Arabic, 18, &H00FFFFFF, &H000000FF, &H00000000, &H00000000, 0, 0, 0, 0, 100, 100, 0, 0, 1, 1, 0, 2, 10, 10, 10, 1\n\
+        Style: Default, Noto Naskh Arabic, 18, &H00FFFFFF, &H000000FF, &H00000000, &H00000000, 0, 0, 0, 0, 100, 100, 0, 0, 1, 1, 0, 5, 10, 10, 10, 1\n\
         \n\
         [Events]\n\
         Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n\
@@ -184,12 +228,20 @@ pub fn make_subtitle_file(subtitles: Vec<SubtitleData>, output: &str) {
     file.write_all(ass_content.as_bytes()).unwrap();
 }
 
-pub fn make_short(bg_image: &str, subtitle_path: &str, audio_path: &str) {
+pub fn make_short(
+    bg_image: &str,
+    surah_title: &str,
+    start_aya: &str,
+    end_aya: &str,
+    subtitle_path: &str,
+    audio_path: &str,
+) {
     let output_path = "generated-videos/output.mp4";
-    let title = "drawtext=text=Al-Quran:fontfile=resources/fonts/arabic.ttf:fontcolor=white:fontsize=60:x=(w-text_w)/2:y=80";
-    let sub_title = "drawtext=text=Translation:fontfile=resources/fonts/arabic.ttf:fontcolor=white:fontsize=40:x=(w-text_w)/2:y=135";
+    let title = "drawtext=text=Al-Quran:fontfile=resources/fonts/english-bold.ttf:fontcolor=white:fontsize=60:x=(w-text_w)/2:y=80";
+    let surah_title = format!("drawtext=text={} {}-{}:fontfile=resources/fonts/english.ttf:fontcolor=white:fontsize=38:x=(w-text_w)/2:y=135", surah_title, start_aya, end_aya);
+    let sub_title = "drawtext=text=Translation:fontfile=resources/fonts/english.ttf:fontcolor=white:fontsize=35:x=(w-text_w)/2:y=175";
     let seperator =
-        "drawtext=text=❀----------❤----------❀:fontfile=resources/fonts/arabic.ttf:fontcolor=white:fontsize=30:x=(w-text_w)/2:y=175";
+        "drawtext=text=❀----------❤----------❀:fontfile=resources/fonts/english.ttf:fontcolor=white:fontsize=30:x=(w-text_w)/2:y=215";
     let subtitle_filter = format!(
         "subtitles=filename={}:fontsdir=resources/fonts/",
         subtitle_path
@@ -203,7 +255,10 @@ pub fn make_short(bg_image: &str, subtitle_path: &str, audio_path: &str) {
             "-i",
             audio_path,
             "-vf",
-            &format!("{},{},{},{}", title, sub_title, seperator, subtitle_filter),
+            &format!(
+                "{},{},{},{},{}",
+                title, surah_title, sub_title, seperator, subtitle_filter
+            ),
             "-c:v",
             "libx264",
             "-c:a",
