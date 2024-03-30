@@ -121,6 +121,7 @@ pub fn get_full_audio_and_text(
         writeln!(file, "file '{}'", audio_path).unwrap();
 
         let text = read_arabic_quran(surah, &format!("{}", i), text_file);
+        println!("audio_path {:?}", audio_path);
         let duration_f64 = get_audio_duration(&audio_path).unwrap();
         let duration = parse_duration(duration_f64);
         let end_time = duration;
@@ -163,7 +164,7 @@ fn format_duration(duration: Duration) -> String {
 }
 
 fn get_audio_duration(file_path: &str) -> Result<f64, Box<dyn std::error::Error>> {
-    let output = Command::new("ffprobe")
+    let output = Command::new("ffmpeg.ffprobe")
         .args([
             "-v",
             "error",
@@ -175,9 +176,11 @@ fn get_audio_duration(file_path: &str) -> Result<f64, Box<dyn std::error::Error>
         ])
         .output()?;
 
+    println!("output of duration {:?}", output);
     let binding = String::from_utf8(output.stdout)?;
     let duration_str = binding.trim();
     let duration = duration_str.parse::<f64>()?;
+    println!("parsed duration {:?}", duration);
     Ok(duration)
 }
 
@@ -242,10 +245,12 @@ pub fn make_short(
     let sub_title = "drawtext=text=Translation:fontfile=resources/fonts/english.ttf:fontcolor=white:fontsize=35:x=(w-text_w)/2:y=175";
     let seperator =
         "drawtext=text=❀----------❤----------❀:fontfile=resources/fonts/english.ttf:fontcolor=white:fontsize=30:x=(w-text_w)/2:y=215";
+
     let subtitle_filter = format!(
         "subtitles=filename={}:fontsdir=resources/fonts/",
         subtitle_path
     );
+
     let output = Command::new("ffmpeg")
         .args([
             "-loop",
@@ -270,6 +275,7 @@ pub fn make_short(
         ])
         .output()
         .expect("Failed to execute FFmpeg command");
+
     println!("output {:?}", output);
     let _ = fs::remove_file("output.ass");
 }

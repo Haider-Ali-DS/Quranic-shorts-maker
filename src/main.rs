@@ -102,6 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         audio_folder,
         temp_file_path,
     );
+
     concatenate_mp3(temp_file_path, concatenated_audio).unwrap();
     make_subtitle_file(subtitles, subtitle_path);
     make_short(
